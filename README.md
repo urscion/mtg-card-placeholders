@@ -1,0 +1,2 @@
+# MTG Card Placeholder generator
+

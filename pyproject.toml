@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "mtg-card-placeholder"
+version = "0.1.0"
+description = "Generates a PDF file for binder placeholders for MTG cards"
+authors = ["Peter Clay <pwclay@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "mtg_card_placeholder" }]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+mtg-parser = "^0.0.1a28"
+reportlab = "^4.0.4"
+tyro = "^0.5.4"
+scrython = "^1.11.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.7.0"
+flake8 = "^5"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+src_paths = ["mtg_card_placeholder", "tests"]
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+
