@@ -18,7 +18,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 COLUMNS = 5
 SPACER_SIZE = 0.20 * inch
-MAX_NUMBER_OF_SETS = 6
+MAX_NUMBER_OF_SETS = 10
 PLACEHOLDER_STYLE = TableStyle(
     [
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
@@ -38,23 +38,27 @@ class Arguments:
 def create_table(deck: List[mtg_parser.Card]) -> Table:
     styles = getSampleStyleSheet()
     normal_style = styles["Normal"]
-    normal_style.leading = 24
     normal_style.fontName = "Courier"
     normal_style.alignment = rl_enums.TA_LEFT
 
     style_card = copy.deepcopy(styles["Normal"])
     style_card.fontSize = 20
+    style_card.leading = 24
 
     style_info = copy.deepcopy(styles["Normal"])
     style_info.fontSize = 14
+    style_info.leading = 16
 
     style_set = copy.deepcopy(styles["Normal"])
-    style_set.fontSize = 14
+    style_set.fontSize = 8
+    style_set.leading = 10
 
     style_notes = copy.deepcopy(styles["Normal"])
-    style_notes.fontSize = 12
+    style_notes.fontSize = 14
+    style_notes.leading = 12
 
     data = []
+    deck = sorted(deck, key=lambda x: x.name)
     card_chunks = [deck[i : i + COLUMNS] for i in range(0, len(deck), COLUMNS)]
     for card_chunk in card_chunks:
         row = []
@@ -68,26 +72,34 @@ def create_table(deck: List[mtg_parser.Card]) -> Table:
 
             set_map = defaultdict(set)
             card_info = ""
+            set_prices = {}
+            set_rarities = {}
             for scry_card in scry_cards:
+                if "paper" not in scry_card["games"]:
+                    continue
                 if not card_info:
                     colors = scry_card["colors"] if "colors" in scry_card else scry_card["card_faces"][0]["colors"]
                     colors = colors or "C"
                     card_colors = "/".join(colors)
-                    card_info = f"{scry_card['rarity'][0].upper()} | {card_colors}"
+                    card_info = f"Color: {card_colors}"
                 set_code = scry_card["set"].upper()
                 # Never going to collect these
-                if set_code in ["LEA", "LEB", "SUM"] or len(set_code) != 3:
+                if set_code in ["LEA", "LEB", "SUM", "4BB", "FBB"] or len(set_code) != 3:
                     continue
-                set_map[scry_card["set_type"]].add(set_code)
+                set_rarities[set_code] = scry_card["rarity"][0].upper()
+                set_map[scry_card["set_type"]].add(f"{set_code}")
+                try:
+                    set_prices[set_code] = f"{float(scry_card['prices']['usd']):05.2f}"
+                except Exception:
+                    pass
 
             collect_sets = set_map["core"] | set_map["expansion"]
             commander_sets = set_map["commander"]
 
             # No collector sets and Commander sets exist
-            if not collect_sets and commander_sets:
-                set_of_sets = ["[Cmdr]"] if len(commander_sets) > MAX_NUMBER_OF_SETS else commander_sets
-            # Too many sets, print a message
-            elif len(collect_sets) > MAX_NUMBER_OF_SETS:
+            if len(collect_sets) > MAX_NUMBER_OF_SETS:
+                if len(commander_sets) <= MAX_NUMBER_OF_SETS:
+                    set_of_sets = commander_sets
                 set_of_sets = ["[ManySets]"]
             # Zero collector sets, use all sets instead
             elif len(collect_sets) == 0:
@@ -96,19 +108,28 @@ def create_table(deck: List[mtg_parser.Card]) -> Table:
             else:
                 set_of_sets = collect_sets
 
-            # Only print the first five
-            set_str = ", ".join(sorted(set_of_sets))
-            set_padding = MAX_NUMBER_OF_SETS * 5 - 1
-            set_str_with_padding = f"{set_str:{set_padding}s}".replace(" ", "&nbsp;")
+            # Set info
+            set_info = [
+                f"{myset}[{set_rarities[myset]}]({set_prices.get(myset, '')})" if myset in set_rarities else myset
+                for myset in sorted(set_of_sets)
+            ]
+            set_info_lines = [" ".join(set_info[i : i + 2]) for i in range(0, len(set_info), 2)]
+            for _ in range(0, 5 - len(set_info_lines)):
+                set_info_lines.append("&nbsp;")
+            set_str = "<br/>".join(set_info_lines)
+            set_str_with_padding = f"{set_str}".replace(" ", "&nbsp;")
+
+            # Card name
             card_name = str(card.name).split("//")[0] + " [2]" if "//" in card.name else card.name
             card_name_with_padding = f"{card_name:50s}".replace(" ", "&nbsp;")
+
             cell = [
                 Paragraph(f"{card_name_with_padding}", style=style_card),
                 Paragraph(f"{card_info}", style=style_info),
                 Paragraph(f"{set_str_with_padding}", style=style_set),
             ]
             if args.notes:
-                cell.append(Paragraph(f"{args.notes}", style=style_set))
+                cell.append(Paragraph(f"{args.notes}", style=style_notes))
             row.append(cell)
         data.append(row)
 
