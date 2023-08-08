@@ -5,6 +5,7 @@ description = "Generates a PDF file for binder placeholders for MTG cards"
 authors = ["Peter Clay <pwclay@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "mtg_card_placeholder" }]
+license = "BSD-3-Clause"
 
 [tool.poetry.dependencies]
 python = "^3.8"
